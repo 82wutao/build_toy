@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<build>
+	<property name="platform" value="linu"/>
+	<property name="cc" value="clang++"/>
+	<property name="dist-dir" value="bin"/>
+	<property name="lib-dir" value="libs"/>
+	<property name="obj-dir" value="objects"/>
+
+	<property name="includes" value="include"/>
+	<property name="warn" value="-Wall"/>
+	<property name="debug" value="-g"/>
+	<property name="lang-std" value="-std=c++11"/>
+	<property name="macros" value=""/>
+
+	<config>
+		<var name="" value=""/>
+		<file src="" dist=""/>
+	</config>
+
+	<target name="all">
+		<compile src-dir="src" src-files="*" sub-dirs="" />
+		<make type="exe" name="main.out" dependences="helloworld,pthread" />
+	</target>
+	<target name="helloworld">
+		<compile src-dir="src/helloworld" src-files="*" sub-dirs="" />
+		<make type="static" name="helloworld" dependences="" />
+	</target>
+</build>
