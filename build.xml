@@ -12,17 +12,17 @@
 	<property name="lang-std" value="-std=c++11"/>
 	<property name="macros" value=""/>
 
-	<config>
-		<var name="" value=""/>
-		<file src="" dist=""/>
-	</config>
-
-	<target name="all">
-		<compile src-dir="src" src-files="*" sub-dirs="" />
-		<make type="exe" name="main.out" dependences="helloworld,pthread" />
+	<target name="config" src-dir="src" src-files="*" sub-dirs="" >
+		<property name="" value=""/>
+		<replace src="" dist=""/>
 	</target>
-	<target name="helloworld">
+
+	<target name="all" dependences="helloworld,pthread" src-dir="src" src-files="*" sub-dirs="" >
+		<compile />
+		<make type="exe" name="main.out" libs="helloworld" lib-dirs="" />
+	</target>
+	<target name="helloworld" src-dir="src" src-files="*" sub-dirs="" >
 		<compile src-dir="src/helloworld" src-files="*" sub-dirs="" />
-		<make type="static" name="helloworld" dependences="" />
+		<make type="static" name="helloworld" libs="" lib-dirs=""/>
 	</target>
 </build>
