@@ -6,6 +6,7 @@ import getopt
 
 from xml.dom.minidom import parse
 import xml.dom.minidom
+import xml.etree.cElementTree as eleTree
 
 
 
@@ -62,8 +63,9 @@ def make_executable(obj_list,target_name,lib_list,lib_dir_list):
     libs_tag = " ".join(["-l%s" % l for l in lib_list])
 
     lib_dirs_tag = " ".join(["-L%s" % d for d in lib_dir_list])
-
+    
     link_cmd="%s -o %s/%s %s %s %s" % (cc,dist_dir,target_name,objects_tag,lib_dirs_tag,libs_tag)
+    print("link cmd: %s" % link_cmd)
     execute_cmd(link_cmd)
     pass
 
@@ -81,17 +83,27 @@ def make_share_lib(obj_list,target_name):
     execute_cmd(share_cmd)
     pass
 
-def dir_recursion(dir_path,file_handle_func):
+def dir_recursion(dir_path,sub_dirs,file_handle_func):
     files=os.listdir(dir_path)
-
-    subdirs = []
+    
+    subdir_list = []
     for f in files:
+        f = os.path.join(dir_path,f)
         is_dir = os.path.isdir(f)
+        print("dir_recursion %s is dir? %s" %(f,is_dir))
         if is_dir:
-            subdirs.append(f)
+            subdir_list.append(f)
         else:
             file_handle_func(f)
-    for subdir in subdirs:
+
+    if sub_dirs is None or len(sub_dirs)==0:
+        subdir_list = []
+    else:
+        subdir_list = subdir_list if sub_dirs.startswith("*") else filter(lambda sub:sub in sub_dirs,subdir_list)
+    if len(subdir_list) == 0:
+        return
+
+    for subdir in subdir_list:
         dir_recursion(subdir,file_handle_func)
     pass
 
@@ -101,10 +113,10 @@ def config_phase(config_ele):
     # TODO
     pass
 def target_execute_recursion(target_executing,targets):
-    target_name = target_executing.getAttribute("name")
+    target_name = target_executing.attrib["name"]
     print("\nexecuting target %s " % target_name)
 
-    dependences = target_executing.getAttribute("dependences")
+    dependences = target_executing.attrib.get("dependences","")
     print("found dependence %s" % dependences)
     dependence_list = [] if dependences is None or len(dependences.strip())==0 else dependences.split(",")
     for dependence in dependence_list:
@@ -118,62 +130,64 @@ def target_execute_recursion(target_executing,targets):
             continue
         target_execute_recursion(targets[dependence],targets)
 
-    src_dir=target_executing.getAttribute("src-dir")
+    src_dir=target_executing.attrib["src-dir"]
 
-    src_files = target_executing.getAttribute("src-files")
+    src_files = target_executing.attrib["src-files"]
     src_files = [] if len(src_files.strip())==0 else src_files.split(",")
     if len(src_files) ==1 and src_files[0].startswith("*"):
         src_list=filter(lambda ele: os.path.isfile(ele),[ os.path.join(src_dir,ele) for ele in os.listdir(src_dir)])
     else:
         src_list=src_files
 
-    sub_dirs = target_executing.getAttribute("sub-dirs")
+    sub_dirs = target_executing.attrib["sub-dirs"]
     sub_dirs = [] if len(sub_dirs.strip())==0 else sub_dirs.split(",")
     if len(sub_dirs) ==1 and sub_dirs[0].startswith("*"):
         sub_dirs=filter(lambda ele: os.path.isdir(ele),os.listdir(src_dir))
 
-    children_ele=[type(child)==xml.dom.minidom.Element for child in target_executing.childNodes]
+    children_ele=[ child for child in target_executing]
     for child_ele in children_ele:
-        print(child_ele)
-        ele_tag = child_ele.tagName
+        ele_tag = child_ele.tag
         phase_function = function_mapping[ele_tag]
         phase_function(child_ele,src_dir,src_list,sub_dirs)
 
 def compile_phase(compile_ele,src_dir,src_files,sub_dirs):
 
-    def compile(_src_file_src_dir):
+    def compile(_src_file,_src_dir):
         compile_dir = os.path.join(obj_dir,_src_dir)
         if not  os.path.exists(compile_dir):
             dir_make(obj_dir,_src_dir)
 
+        includes_tag = " ".join( include_list)
+        macros_tag = " ".join(macro_list)
         compile_cmd="%s %s %s %s %s %s -c %s -o %s/%s.obj" % (cc,includes_tag,warn_tag,debug_tag,macros_tag,std_tag,_src_file,obj_dir,_src_file)
         print(compile_cmd)
         execute_cmd(compile_cmd)
         pass
 
-    for src_file in src_list:
+    for src_file in src_files:
         compile(src_file,src_dir)
     for sub_dir in sub_dirs:
         dir_recursion(sub_dir,compile)
 
 def make_phase(make_ele,src_dir,src_files,sub_dirs):
-    target_type = make_ele.getAttribute("type")
+    target_type = make_ele.attrib["type"]
     if target_type not in ["exe","static","share"]:
         print("target must be any of [exe,static,share]")
         return 
 
     objects=[]
     def collect_objects(sub_file):
+        print("collect_objects %s " % sub_file)
         objects.append(sub_file)
         
     result_dir=os.path.join(obj_dir,src_dir)
-    dir_recursion(result_dir,collect_objects)
+    dir_recursion(result_dir,sub_dirs,collect_objects)
 
-    target_name = make_ele.getAttribute("name")
-    target_dependences = make_ele.getAttribute("libs")
+    target_name = make_ele.attrib["name"]
+    target_dependences = make_ele.attrib["libs"]
     target_dependences = [] if target_dependences is None or len(target_dependences.strip())==1 else target_dependences.split(",")
-    target_lib_dirs = make_ele.getAttribute("lib-dirs")
-    target_lib_dirs=[] if target_lib_dirs is None or len(target_lib_dirs.strip) == 0 else target_lib_dirs.split(",")
+    target_lib_dirs = make_ele.attrib["lib-dirs"]
+    target_lib_dirs=[] if target_lib_dirs is None or len(target_lib_dirs.strip()) == 0 else target_lib_dirs.split(",")
 
     if target_type == "exe":
         make_executable(objects,target_name,target_dependences,[lib_dir])
@@ -188,12 +202,14 @@ if __name__ == "__main__":
 
     DOMTree = xml.dom.minidom.parse("build.xml")
     build_context = DOMTree.documentElement
+    docTree = eleTree.ElementTree(file="build.xml")
+    build_context = docTree.getroot()
 
-    properties = build_context.getElementsByTagName("property")
+    properties = build_context.iterfind("property")
 
     prop_config = dict()
     for prop in properties:
-        prop_config[prop.getAttribute("name")] = prop.getAttribute("value")
+        prop_config[prop.attrib["name"]] = prop.attrib["value"]
     detect(prop_config)
 
     include_dirs = prop_config["includes"]
@@ -214,9 +230,9 @@ if __name__ == "__main__":
 
 
     target_dict = dict()
-    targets = build_context.getElementsByTagName("target")
+    targets = build_context.iterfind("target")
     for target in targets:
-        target_dict[target.getAttribute("name")]=target
+        target_dict[target.attrib["name"]]=target
     target_execute_recursion(target_dict["all"],target_dict)
     
 

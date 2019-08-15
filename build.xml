@@ -21,8 +21,8 @@
 		<compile />
 		<make type="exe" name="main.out" libs="helloworld" lib-dirs="" />
 	</target>
-	<target name="helloworld" src-dir="src" src-files="*" sub-dirs="" >
-		<compile src-dir="src/helloworld" src-files="*" sub-dirs="" />
+	<target name="helloworld" src-dir="src/helloworld" src-files="*" sub-dirs="" >
+		<compile />
 		<make type="static" name="helloworld" libs="" lib-dirs=""/>
 	</target>
 </build>
